@@ -49,22 +49,21 @@ def handle_client(conn, addr):
                     tamanho = os.path.getsize(nome_arquivo)
                     hash_arquivo = calcular_hash(nome_arquivo)
                     msg_ok= f"OK {nome_arquivo} {tamanho} {hash_arquivo}\n"
-                    print(msg_ok.strip())
+                    print(f"Enviando arquivo {nome_arquivo} para {addr}")
                     conn.sendall(msg_ok.encode())
 
-                    confirmacao_linha, buffer = recv_linha(conn,buffer)
+                    confirmacao_linha, buffer = recv_linha(conn, buffer)
 
                     if confirmacao_linha == "OK": # Cliente confirma recebimento, envia o arquivo
                         with open(nome_arquivo, 'rb') as f:
                             while chunk := f.read(4096):
                                 conn.sendall(chunk)
-
                     else:
                         print(f"Cliente {addr} não confirmou recebimento do arquivo.")
                         conn.sendall("NC NAo houve confirmacao do arquivo \n".encode()) 
                 else:
                     print(f"Arquivo {nome_arquivo} não encontrado.")
-                    conn.sendall("NOK Arquvi nao existe\n".encode())
+                    conn.sendall("NOK Arquivo nao existe\n".encode())
 
             elif requisicao.lower().startswith("chat "):
                 msg = requisicao[5:].strip()

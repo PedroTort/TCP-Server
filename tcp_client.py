@@ -1,7 +1,5 @@
 import socket
-import threading
 import hashlib
-import os
 import time
 
 HOST = '127.0.0.1'  # Endereço do servidor
@@ -15,7 +13,7 @@ def calcular_hash(arquivo):
             hasher.update(chunk)
     return hasher.hexdigest()
 
-# Lê uma linha completa de conexão (até '\n')
+# Lê uma linha completa da conexão (até '\n')
 def recv_linha(conn, buffer):
     while b'\n' not in buffer:
         dados = conn.recv(1024)
@@ -28,24 +26,28 @@ def recv_linha(conn, buffer):
 # Função principal do cliente
 def start_client():
     client = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-    client.connect((HOST, PORT)) # Conecta ao servidor
+    client.connect((HOST, PORT))
 
     buffer = b""
+
     while True:
         comando = input("Digite um comando (sair / arquivo <nome.ext> / chat <msg>): ")
-        client.sendall((comando + '\n').encode()) # Envia o comando com \n <- necessário para delimitar a linha
+        client.sendall((comando + '\n').encode())
 
         if comando.lower() == "sair":
             break
 
         elif comando.lower().startswith("arquivo "):
-            resposta = client.recv(1024).decode()
+            resposta, buffer = recv_linha(client, buffer)
+            if resposta is None:
+                print("[ERRO] Conexão fechada inesperadamente.")
+                break
+
             if resposta.startswith("OK"):
-                # Lê os metadados enviados pelo servidor
                 _, nome_arquivo, tamanho, hash_servidor = resposta.split()
                 tamanho = int(tamanho)
                 print(f"[DEBUG] Recebendo arquivo: {nome_arquivo} ({tamanho} bytes, hash: {hash_servidor})")
-                client.sendall("OK\n".encode())  # Confirma recebimento
+                client.sendall("OK\n".encode())
 
                 timestamp = int(time.time())
                 caminho_arquivo = f"{nome_arquivo}_{timestamp}"
@@ -71,9 +73,18 @@ def start_client():
                     print(f"Erro: Hash do arquivo recebido não confere. Esperado: {hash_servidor}, Recebido: {hash_cliente}")
 
             else:
+                # Pode ser "NOK Comando desconhecido" ou "NOK Arquivo nao existe"
                 print(resposta)
-            
+
         elif comando.lower().startswith("chat "):
+            linha, buffer = recv_linha(client, buffer)
+            if linha:
+                print(linha)
+            else:
+                print("Erro ao receber mensagem do servidor.")
+
+        else:
+            # Não imprime nada local, só espera resposta do servidor
             linha, buffer = recv_linha(client, buffer)
             if linha:
                 print(linha)
@@ -82,6 +93,5 @@ def start_client():
 
     client.close()
 
-    
 if __name__ == "__main__":
     start_client()
